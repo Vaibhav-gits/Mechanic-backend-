@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const getCustomerCount = (userId, callback) => {
   const sql = `
     SELECT
-      COUNT(*) AS totalCustomers,
+     COUNT(*) AS totalCount,
       SUM(CASE WHEN gender = 1 THEN 1 ELSE 0 END) AS maleCount,
       SUM(CASE WHEN gender = 2 THEN 1 ELSE 0 END) AS femaleCount,
       SUM(CASE WHEN gender = 3 THEN 1 ELSE 0 END) AS otherCount
