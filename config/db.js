@@ -16,6 +16,7 @@ db.getConnection((err, connection) => {
     console.error("Error connecting to the database:", err);
   } else {
     console.log("Database connection established");
+    connection.release();
   }
 });
 module.exports = db;
