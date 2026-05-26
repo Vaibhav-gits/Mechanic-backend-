@@ -604,6 +604,7 @@ exports.getAllIncome = (req, res) => {
       },
     )
     .catch((err) => {
+        console.log("GET ALL INCOME ERROR => ", err);
       res.status(500).json({ isSuccess: false, message: err.message });
     });
 };
