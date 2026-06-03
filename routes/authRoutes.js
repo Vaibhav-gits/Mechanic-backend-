@@ -242,6 +242,7 @@ router.post(
 
 // ─── Billing ────────
 const billingController = require("../controllers/billingController");
+const subscriptionController = require("../controllers/subscriptionController");
 
 router.post("/billing/addBill", verifyToken, billingController.addBill);
 router.put("/billing/updateBill", verifyToken, billingController.updateBill);
@@ -281,6 +282,8 @@ router.post(
   verifyToken,
   billingController.getBillingByCustomerId,
 );
+// Subscription endpoints
+router.post("/subscription/addsubscription", verifyToken, subscriptionController.addSubscription);
 router.get(
   "/billing/getAllPricingPlan",
   verifyToken,
