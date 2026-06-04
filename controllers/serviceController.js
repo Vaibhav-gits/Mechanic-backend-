@@ -1,13 +1,13 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 
-const validateGenderPrice = (gender, malePrice, femalePrice) => {
-  if (!gender || gender === 0) return "Please select gender";
-  if (gender === 1 && (!malePrice || malePrice == 0))
-    return "Please select male price";
-  if (gender === 2 && (!femalePrice || femalePrice == 0))
-    return "Please select female price";
-  if (gender === 3 && (!malePrice || !femalePrice))
+const validateGenderPrice = (gender, twoWheelerPrice, fourWheelerPrice) => {
+  if (!gender || gender === 0) return "Please select vehicle type";
+  if (gender === 1 && (!twoWheelerPrice || twoWheelerPrice == 0))
+    return "Please select two wheeler price";
+  if (gender === 2 && (!fourWheelerPrice || fourWheelerPrice == 0))
+    return "Please select four wheeler price";
+  if (gender === 3 && (!twoWheelerPrice || !fourWheelerPrice))
     return "Please select price";
   return null;
 };
@@ -29,13 +29,11 @@ exports.insertService = (req, res) => {
       .status(400)
       .json({ isSuccess: false, errors: ["Name is required"] });
   if (!categoryId)
-    return res
-      .status(400)
-      .json({
-        isSuccess: false,
-        statusCode: 400,
-        errors: ["Please select category"],
-      });
+    return res.status(400).json({
+      isSuccess: false,
+      statusCode: 400,
+      errors: ["Please select category"],
+    });
 
   const genderError = validateGenderPrice(gender, malePrice, femalePrice);
   if (genderError)
@@ -44,85 +42,88 @@ exports.insertService = (req, res) => {
       .json({ isSuccess: false, statusCode: 400, errors: [genderError] });
 
   const dupSql = `SELECT id FROM services 
-                  WHERE name = ? AND created_by = ? AND is_deleted = 0 LIMIT 1`;
-  db.query(dupSql, [name.trim(), userId], (err, dupResult) => {
-    if (err)
-      return res.status(500).json({ isSuccess: false, message: err.message });
-    if (dupResult.length > 0) {
-      return res
-        .status(409)
-        .json({
+                WHERE name = ? AND created_by = ? AND gender = ? AND category_id = ? AND is_deleted = 0 LIMIT 1`;
+
+  db.query(
+    dupSql,
+    [name.trim(), userId, gender, categoryId],
+    (err, dupResult) => {
+      if (err)
+        return res.status(500).json({ isSuccess: false, message: err.message });
+      if (dupResult.length > 0) {
+        return res.status(409).json({
           isSuccess: false,
           statusCode: 409,
           errors: ["Name already exists"],
         });
-    }
+      }
 
-    const { malePrice: mp, femalePrice: fp } = resolvePrices(
-      gender,
-      malePrice,
-      femalePrice,
-    );
-    const newId = uuidv4();
+      const { malePrice: mp, femalePrice: fp } = resolvePrices(
+        gender,
+        malePrice,
+        femalePrice,
+      );
+      const newId = uuidv4();
 
-    const insertSql = `INSERT INTO services 
-                       (id, name, category_id, male_price, female_price, gender, status_id,
+      const insertSql = `INSERT INTO services 
+                       (id, name, category_id, two_wheeler_price, four_wheeler_price, gender, status_id,
                         user_id, created_by, is_default, is_deleted, created_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`;
-    db.query(
-      insertSql,
-      [
-        newId,
-        name.trim(),
-        categoryId,
-        mp,
-        fp,
-        gender,
-        statusId || 1,
-        userId,
-        userId,
-        new Date(),
-      ],
-      (err) => {
-        if (err)
-          return res
-            .status(500)
-            .json({ isSuccess: false, message: err.message });
+      db.query(
+        insertSql,
+        [
+          newId,
+          name.trim(),
+          categoryId,
+          mp,
+          fp,
+          gender,
+          statusId || 1,
+          userId,
+          userId,
+          new Date(),
+        ],
+        (err) => {
+          if (err)
+            return res
+              .status(500)
+              .json({ isSuccess: false, message: err.message });
 
-        db.query(
-          "SELECT name FROM categories WHERE id = ? AND user_id = ? AND is_deleted = 0",
-          [categoryId, userId],
-          (err, catResult) => {
-            if (err)
-              return res
-                .status(500)
-                .json({ isSuccess: false, message: err.message });
-            const categoryName = catResult[0]?.name || "";
+          db.query(
+            "SELECT name FROM categories WHERE id = ? AND user_id = ? AND is_deleted = 0",
+            [categoryId, userId],
+            (err, catResult) => {
+              if (err)
+                return res
+                  .status(500)
+                  .json({ isSuccess: false, message: err.message });
+              const categoryName = catResult[0]?.name || "";
 
-            res.json({
-              isSuccess: true,
-              statusCode: 200,
-              message: "Service added successfully",
-              response: {
-                serviceVM: {
-                  id: newId,
-                  name: name.trim(),
-                  categoryId,
-                  categoryName,
-                  malePrice: mp,
-                  femalePrice: fp,
-                  gender,
-                  statusId: statusId || 1,
-                  userId,
-                  isDefault: false,
+              res.json({
+                isSuccess: true,
+                statusCode: 200,
+                message: "Service added successfully",
+                response: {
+                  serviceVM: {
+                    id: newId,
+                    name: name.trim(),
+                    categoryId,
+                    categoryName,
+                    twoWheelerPrice: mp,
+                    fourWheelerPrice: fp,
+                    gender,
+                    statusId: statusId || 1,
+                    userId,
+                    isDefault: false,
+                  },
                 },
-              },
-            });
-          },
-        );
-      },
-    );
-  });
+              });
+            },
+          );
+        },
+      );
+    },
+  );
 };
 
 exports.updateService = (req, res) => {
@@ -139,13 +140,11 @@ exports.updateService = (req, res) => {
       .status(400)
       .json({ isSuccess: false, errors: ["Name is required"] });
   if (!categoryId)
-    return res
-      .status(400)
-      .json({
-        isSuccess: false,
-        statusCode: 400,
-        errors: ["Please select category"],
-      });
+    return res.status(400).json({
+      isSuccess: false,
+      statusCode: 400,
+      errors: ["Please select category"],
+    });
 
   const genderError = validateGenderPrice(gender, malePrice, femalePrice);
   if (genderError)
@@ -154,97 +153,100 @@ exports.updateService = (req, res) => {
       .json({ isSuccess: false, statusCode: 400, errors: [genderError] });
 
   const dupSql = `SELECT id FROM services 
-                  WHERE name = ? AND id != ? AND created_by = ? AND is_deleted = 0 LIMIT 1`;
-  db.query(dupSql, [name.trim(), id, userId], (err, dupResult) => {
-    if (err)
-      return res.status(500).json({ isSuccess: false, message: err.message });
-    if (dupResult.length > 0) {
-      return res
-        .status(409)
-        .json({
+                WHERE name = ? AND id != ? AND created_by = ? AND gender = ? AND category_id = ? AND is_deleted = 0 LIMIT 1`;
+
+  db.query(
+    dupSql,
+    [name.trim(), id, userId, gender, categoryId],
+    (err, dupResult) => {
+      if (err)
+        return res.status(500).json({ isSuccess: false, message: err.message });
+      if (dupResult.length > 0) {
+        return res.status(409).json({
           isSuccess: false,
           statusCode: 409,
           errors: ["Name already exists"],
         });
-    }
+      }
 
-    db.query(
-      "SELECT * FROM services WHERE id = ? AND is_deleted = 0 LIMIT 1",
-      [id],
-      (err, existing) => {
-        if (err)
-          return res
-            .status(500)
-            .json({ isSuccess: false, message: err.message });
-        if (existing.length === 0) {
-          return res
-            .status(204)
-            .json({ isSuccess: false, errors: ["Not found"] });
-        }
+      db.query(
+        "SELECT * FROM services WHERE id = ? AND is_deleted = 0 LIMIT 1",
+        [id],
+        (err, existing) => {
+          if (err)
+            return res
+              .status(500)
+              .json({ isSuccess: false, message: err.message });
+          if (existing.length === 0) {
+            return res
+              .status(204)
+              .json({ isSuccess: false, errors: ["Not found"] });
+          }
 
-        const { malePrice: mp, femalePrice: fp } = resolvePrices(
-          gender,
-          malePrice,
-          femalePrice,
-        );
-
-        const updateSql = `UPDATE services SET name=?, category_id=?, male_price=?, female_price=?,
-                         gender=?, status_id=?, user_id=?, is_default=0, updated_at=? WHERE id=?`;
-        db.query(
-          updateSql,
-          [
-            name.trim(),
-            categoryId,
-            mp,
-            fp,
+          const { malePrice: mp, femalePrice: fp } = resolvePrices(
             gender,
-            statusId || 1,
-            userId,
-            new Date(),
-            id,
-          ],
-          (err) => {
-            if (err)
-              return res
-                .status(500)
-                .json({ isSuccess: false, message: err.message });
+            malePrice,
+            femalePrice,
+          );
 
-            db.query(
-              "SELECT name FROM categories WHERE id = ? AND user_id = ? AND is_deleted = 0",
-              [categoryId, userId],
-              (err, catResult) => {
-                if (err)
-                  return res
-                    .status(500)
-                    .json({ isSuccess: false, message: err.message });
-                const categoryName = catResult[0]?.name || "";
+          const updateSql = `UPDATE services SET name=?, category_id=?, two_wheeler_price=?, four_wheeler_price=?,
+                         gender=?, status_id=?, user_id=?, is_default=0, updated_at=? WHERE id=?`;
+          db.query(
+            updateSql,
+            [
+              name.trim(),
+              categoryId,
+              mp,
+              fp,
+              gender,
+              statusId || 1,
+              userId,
+              new Date(),
+              id,
+            ],
+            (err) => {
+              if (err)
+                return res
+                  .status(500)
+                  .json({ isSuccess: false, message: err.message });
 
-                res.json({
-                  isSuccess: true,
-                  statusCode: 200,
-                  message: "Service updated successfully",
-                  response: {
-                    serviceVM: {
-                      id,
-                      name: name.trim(),
-                      categoryId,
-                      categoryName,
-                      malePrice: mp,
-                      femalePrice: fp,
-                      gender,
-                      statusId: statusId || 1,
-                      userId,
-                      isDefault: false,
+              db.query(
+                "SELECT name FROM categories WHERE id = ? AND user_id = ? AND is_deleted = 0",
+                [categoryId, userId],
+                (err, catResult) => {
+                  if (err)
+                    return res
+                      .status(500)
+                      .json({ isSuccess: false, message: err.message });
+                  const categoryName = catResult[0]?.name || "";
+
+                  res.json({
+                    isSuccess: true,
+                    statusCode: 200,
+                    message: "Service updated successfully",
+                    response: {
+                      serviceVM: {
+                        id,
+                        name: name.trim(),
+                        categoryId,
+                        categoryName,
+                        twoWheelerPrice: mp,
+                        fourWheelerPrice: fp,
+                        gender,
+                        statusId: statusId || 1,
+                        userId,
+                        isDefault: false,
+                      },
                     },
-                  },
-                });
-              },
-            );
-          },
-        );
-      },
-    );
-  });
+                  });
+                },
+              );
+            },
+          );
+        },
+      );
+    },
+  );
 };
 
 exports.deleteService = (req, res) => {
@@ -298,15 +300,15 @@ exports.getAllService = (req, res) => {
   }
 
   const sql = `
-    SELECT s.id, s.name, s.category_id AS categoryId, c.name AS categoryName,
-           s.male_price AS malePrice, s.female_price AS femalePrice,
-           s.gender, s.status_id AS statusId, s.user_id AS userId,
-           s.is_default AS isDefault, s.created_at AS createdAt
-    FROM services s
-    LEFT JOIN categories c ON c.id = s.category_id AND c.is_deleted = 0
-    WHERE s.user_id = ? AND s.is_deleted = 0 ${genderFilter}
-    ORDER BY c.name ASC, s.name ASC
-  `;
+  SELECT s.id, s.name, s.category_id AS categoryId, c.name AS categoryName,
+         s.two_wheeler_price AS twoWheelerPrice, s.four_wheeler_price AS fourWheelerPrice,
+         s.gender, s.status_id AS statusId, s.user_id AS userId,
+         s.is_default AS isDefault, s.created_at AS createdAt
+  FROM services s
+  LEFT JOIN categories c ON c.id = s.category_id AND c.is_deleted = 0
+  WHERE s.user_id = ? AND s.is_deleted = 0 ${genderFilter}
+  ORDER BY c.name ASC, s.name ASC
+`;
 
   db.query(sql, params, (err, result) => {
     if (err)
@@ -330,8 +332,8 @@ exports.getAllService = (req, res) => {
         name: row.name,
         categoryId: row.categoryId,
         categoryName: row.categoryName,
-        malePrice: row.malePrice,
-        femalePrice: row.femalePrice,
+        twoWheelerPrice: row.twoWheelerPrice,
+        fourWheelerPrice: row.fourWheelerPrice,
         gender: row.gender,
         statusId: row.statusId,
         userId: row.userId,
@@ -366,7 +368,7 @@ exports.getServiceById = (req, res) => {
 
   const sql = `
     SELECT s.id, s.name, s.category_id AS categoryId, c.name AS categoryName,
-           s.male_price AS malePrice, s.female_price AS femalePrice,
+           s.two_wheeler_price AS twoWheelerPrice, s.four_wheeler_price AS fourWheelerPrice,
            s.gender, s.status_id AS statusId, s.user_id AS userId,
            s.is_default AS isDefault, s.created_at AS createdAt
     FROM services s
